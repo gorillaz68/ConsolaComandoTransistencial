@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Algoritmo del Karma | Consola de Ingeniería</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <!-- Chosen Palette: Deep Space Logic (Fondo #0b1120, Acento Cuántico #06b6d4, Oro de Coherencia #fbbf24, Error Crítico #f87171) -->
+    <!-- Application Structure Plan: Dashboard interactivo con navegación lateral. 
+         Secciones: 
+         1. Diagnóstico (Análisis de Entropía), 
+         2. Mecánica (Simulación de Tunelamiento), 
+         3. La Matriz (Entrada de Datos), 
+         4. Troubleshooting (NUEVO: Solución de resistencias del sistema),
+         5. Ejecución (Salto Cuántico final). 
+         Diseñado para empoderar al usuario como Administrador de su propia Red Neuronal (Hopfield/Hinton). -->
+    <!-- Visualization & Content Choices: 
+         - Line Chart (Chart.js): Visualización de Entropía vs Coherencia.
+         - Scatter/Distribution (Chart.js): Probabilidad de tunelamiento cuántico.
+         - UI Interactiva: Matriz de datos y Árbol de Troubleshooting.
+         - NO SVG / NO Mermaid. Todo mediante Canvas y CSS Tailwind. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0b1120; color: #e2e8f0; }
+        .font-mono { font-family: 'Space Mono', monospace; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+
+        .terminal-box {
+            background-color: #0f172a;
+            border: 1px solid #1e293b;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
+        
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+            height: 300px;
+            margin: 0 auto;
+        }
+
+        .scanline {
+            width: 100%; height: 100px; z-index: 10;
+            background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(6, 182, 212, 0.03) 50%, rgba(0,0,0,0) 100%);
+            position: absolute; bottom: 100%; animation: scanline 8s linear infinite; pointer-events: none;
+        }
+        @keyframes scanline { 0% { bottom: 100%; } 100% { bottom: -100%; } }
+
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .tab-btn-active { border-left: 4px solid #06b6d4; background-color: #1e293b; color: #06b6d4; }
+        
+        .troubleshoot-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .troubleshoot-card:hover {
+            border-color: #06b6d4;
+            background-color: #161e2e;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- HEADER / STATUS BAR -->
+    <header class="bg-slate-900 border-b border-slate-800 p-3 flex justify-between items-center z-30">
+        <div class="flex items-center gap-4">
+            <div class="w-3 h-3 rounded-full bg-red-500 animate-pulse" id="status-indicator"></div>
+            <div class="font-mono text-sm tracking-widest text-cyan-500 font-bold uppercase">
+                Algoritmo_Karma <span class="text-slate-500">v2.5.0</span>
+            </div>
+        </div>
+        <div class="hidden lg:flex gap-8 font-mono text-[10px] text-slate-500">
+            <div>CPU: <span class="text-red-400">KARMA_LEGACY</span></div>
+            <div>ENTROPÍA: <span id="header-entropy" class="text-red-400">92%</span></div>
+            <div>COHERENCIA: <span id="header-coherence" class="text-slate-400">8%</span></div>
+            <div>LATENCIA: <span class="text-orange-400">ALTA (SAMSARA)</span></div>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="showModal('glosario')" class="text-[10px] border border-slate-700 px-2 py-1 rounded hover:bg-slate-800 transition uppercase">Glosario</button>
+            <button onclick="showModal('about')" class="text-[10px] bg-cyan-900/30 border border-cyan-700 text-cyan-400 px-2 py-1 rounded hover:bg-cyan-900/50 transition uppercase">Acerca del Testigo</button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden relative">
+        <div class="scanline"></div>
+
+        <!-- SIDEBAR -->
+        <aside class="w-16 md:w-64 bg-slate-900 border-r border-slate-800 flex flex-col z-20">
+            <nav class="flex-1 py-4">
+                <button onclick="switchTab('diagnostico')" id="btn-diagnostico" class="tab-btn-active w-full p-4 text-left flex items-center gap-3 transition">
+                    <span class="text-xl">🔍</span> <span class="hidden md:inline font-mono text-xs font-bold uppercase">Diagnóstico</span>
+                </button>
+                <button onclick="switchTab('mecanica')" id="btn-mecanica" class="w-full p-4 text-left flex items-center gap-3 text-slate-500 hover:bg-slate-800 transition">
+                    <span class="text-xl">⚛️</span> <span class="hidden md:inline font-mono text-xs font-bold uppercase">Mecánica Cuántica</span>
+                </button>
+                <button onclick="switchTab('matriz')" id="btn-matriz" class="w-full p-4 text-left flex items-center gap-3 text-slate-500 hover:bg-slate-800 transition">
+                    <span class="text-xl">📋</span> <span class="hidden md:inline font-mono text-xs font-bold uppercase">La Matriz</span>
+                </button>
+                <button onclick="switchTab('trouble')" id="btn-trouble" class="w-full p-4 text-left flex items-center gap-3 text-slate-500 hover:bg-slate-800 transition border-l-4 border-transparent">
+                    <span class="text-xl">🛠️</span> <span class="hidden md:inline font-mono text-xs font-bold uppercase">Troubleshooting</span>
+                </button>
+                <button onclick="switchTab('salto')" id="btn-salto" class="w-full p-4 text-left flex items-center gap-3 text-slate-500 hover:bg-slate-800 transition">
+                    <span class="text-xl">🌌</span> <span class="hidden md:inline font-mono text-xs font-bold uppercase">Salto Cuántico</span>
+                </button>
+            </nav>
+            <div class="p-4 border-t border-slate-800 text-[10px] font-mono text-slate-600 text-center">
+                BASADO EN NOBEL 2024/2025<br>HOPFIELD & HINTON
+            </div>
+        </aside>
+
+        <!-- MAIN -->
+        <main class="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-950" id="main-view">
+            
+            <!-- SECTION: DIAGNOSTICO -->
+            <section id="diagnostico" class="fade-in space-y-8 max-w-5xl mx-auto">
+                <div class="flex flex-col md:flex-row gap-6">
+                    <div class="flex-1 terminal-box p-6 rounded-lg border-l-4 border-red-500">
+                        <h2 class="text-2xl font-bold font-mono text-white mb-2 uppercase">Análisis de Entropía Mental</h2>
+                        <p class="text-sm text-slate-400 mb-6">Tu sistema está procesando demasiada información redundante de la "Vela A". Esto genera calor térmico que impide el tunelamiento.</p>
+                        
+                        <div class="space-y-6">
+                            <div>
+                                <div class="flex justify-between text-[10px] font-mono mb-2">
+                                    <span>RUIDO SOCIAL (Efecto Zenón)</span>
+                                    <span id="val-zenon" class="text-cyan-400">85%</span>
+                                </div>
+                                <input type="range" id="range-zenon" min="0" max="100" value="85" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500" oninput="updateDiagnostics()">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-[10px] font-mono mb-2">
+                                    <span>APEGO A LA IDENTIDAD (Higgs)</span>
+                                    <span id="val-higgs" class="text-orange-400">92%</span>
+                                </div>
+                                <input type="range" id="range-higgs" min="0" max="100" value="92" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500" oninput="updateDiagnostics()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 terminal-box p-6 rounded-lg flex flex-col items-center justify-center text-center">
+                        <div class="text-xs font-mono text-slate-500 mb-2 uppercase tracking-widest">Coherencia de Red</div>
+                        <div id="coherence-circle" class="text-6xl font-bold text-red-500 mb-2">8%</div>
+                        <div class="text-[10px] font-mono text-red-400 animate-pulse">ESTADO: INESTABLE / SAMSARA ALTO</div>
+                    </div>
+                </div>
+
+                <div class="terminal-box p-6 rounded-lg">
+                    <h3 class="text-xs font-mono text-slate-500 mb-4 uppercase">Gráfico de Fluctuación de Realidad</h3>
+                    <div class="chart-container">
+                        <canvas id="entropyChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: MECANICA -->
+            <section id="mecanica" class="hidden fade-in space-y-6 max-w-5xl mx-auto">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="terminal-box p-6 rounded-lg">
+                        <h3 class="text-xl font-bold text-cyan-400 mb-4 font-mono">SIMULACIÓN DE TUNELAMIENTO</h3>
+                        <p class="text-xs text-slate-400 mb-6">En un sistema frío, tu función de onda puede traspasar la barrera de la pobreza sin interacción clásica.</p>
+                        <div class="chart-container h-48">
+                            <canvas id="tunnelChart"></canvas>
+                        </div>
+                        <div class="mt-6 flex justify-center">
+                            <button onclick="runCooling()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs px-6 py-3 rounded-full shadow-lg shadow-cyan-900/40 transition">EJECUTAR ENFRIAMIENTO (0K)</button>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="terminal-box p-4 rounded-lg bg-slate-900/50 border-l-2 border-cyan-500">
+                            <h4 class="text-sm font-bold text-white mb-2">Ley de Hawking</h4>
+                            <p class="text-[11px] text-slate-400">La información es indestructible. Tu miseria actual es solo información mal organizada en el horizonte de sucesos.</p>
+                        </div>
+                        <div class="terminal-box p-4 rounded-lg bg-slate-900/50 border-l-2 border-yellow-500">
+                            <h4 class="text-sm font-bold text-white mb-2">Redes de Hopfield</h4>
+                            <p class="text-[11px] text-slate-400">Tu mente almacena patrones de "escasez". Para cambiar de realidad, debes desentrenar la red neuronal vieja.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: MATRIZ -->
+            <section id="matriz" class="hidden fade-in space-y-6 max-w-6xl mx-auto">
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold font-mono text-white uppercase tracking-tighter">Matriz de Reconfiguración</h2>
+                    <p class="text-slate-500 text-sm">Entrada de variables para la nueva arquitectura de la Vela B.</p>
+                </div>
+                <div class="grid md:grid-cols-3 gap-4">
+                    <div class="terminal-box p-5 rounded-lg border-t-2 border-red-500">
+                        <label class="block text-[10px] font-mono text-slate-500 mb-3 uppercase">Input: Errores Legacy</label>
+                        <textarea class="w-full bg-black/40 border border-slate-800 rounded p-3 text-xs text-slate-300 h-32 focus:border-red-500 outline-none" placeholder="Describe tu situación de pobreza como datos externos..."></textarea>
+                    </div>
+                    <div class="terminal-box p-5 rounded-lg border-t-2 border-cyan-500">
+                        <label class="block text-[10px] font-mono text-slate-500 mb-3 uppercase">Input: Protocolos de Frío</label>
+                        <textarea class="w-full bg-black/40 border border-slate-800 rounded p-3 text-xs text-slate-300 h-32 focus:border-cyan-500 outline-none" placeholder="¿Qué 3 acciones de silencio vas a tomar hoy?"></textarea>
+                    </div>
+                    <div class="terminal-box p-5 rounded-lg border-t-2 border-yellow-500">
+                        <label class="block text-[10px] font-mono text-slate-500 mb-3 uppercase">Output: Frecuencia de Salida</label>
+                        <textarea class="w-full bg-black/40 border border-slate-800 rounded p-3 text-xs text-slate-300 h-32 focus:border-yellow-500 outline-none" placeholder="Describe la sensación de la Vela B ya ejecutada..."></textarea>
+                    </div>
+                </div>
+                <div class="flex justify-center mt-10">
+                    <button class="bg-white text-black font-mono font-bold px-12 py-4 rounded hover:bg-cyan-400 transition uppercase tracking-widest text-xs">Compilar Código del Ser</button>
+                </div>
+            </section>
+
+            <!-- SECTION: TROUBLESHOOTING (NEW) -->
+            <section id="trouble" class="hidden fade-in space-y-8 max-w-5xl mx-auto">
+                <div class="terminal-box p-6 rounded-lg border-l-4 border-yellow-600 bg-yellow-900/10">
+                    <h2 class="text-2xl font-bold font-mono text-yellow-500 mb-2 uppercase">Centro de Soporte Técnico</h2>
+                    <p class="text-sm text-slate-300">Si el sistema se resiste al cambio o el "Karma Viejo" intenta forzar un reinicio, aplica los siguientes parches de emergencia.</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <!-- Error 1 -->
+                    <div onclick="showTrouble('social')" class="troubleshoot-card terminal-box p-6 rounded-lg border-l-4 border-slate-700">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-xs font-mono text-slate-500">ERROR_ID: 403_FORBIDDEN</span>
+                            <span class="bg-red-900/30 text-red-400 text-[9px] px-2 py-1 rounded">CRÍTICO</span>
+                        </div>
+                        <h4 class="text-white font-bold mb-2">Resistencia del Entorno Social</h4>
+                        <p class="text-[11px] text-slate-400">Tus amigos o familia intentan "recordarte" quién eras. Están enviando paquetes de datos basura para recalentar tu sistema.</p>
+                    </div>
+                    <!-- Error 2 -->
+                    <div onclick="showTrouble('ego')" class="troubleshoot-card terminal-box p-6 rounded-lg border-l-4 border-slate-700">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-xs font-mono text-slate-500">ERROR_ID: 500_INTERNAL</span>
+                            <span class="bg-orange-900/30 text-orange-400 text-[9px] px-2 py-1 rounded">ADVERTENCIA</span>
+                        </div>
+                        <h4 class="text-white font-bold mb-2">Bucle de Culpa (Lógica Circular)</h4>
+                        <p class="text-[11px] text-slate-400">Tu propia mente ejecuta procesos antiguos de arrepentimiento o autocompasión. El procesador está atrapado en un bucle infinito.</p>
+                    </div>
+                    <!-- Error 3 -->
+                    <div onclick="showTrouble('vacuum')" class="troubleshoot-card terminal-box p-6 rounded-lg border-l-4 border-slate-700">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-xs font-mono text-slate-500">ERROR_ID: 404_NOT_FOUND</span>
+                            <span class="bg-cyan-900/30 text-cyan-400 text-[9px] px-2 py-1 rounded">INFORMATIVO</span>
+                        </div>
+                        <h4 class="text-white font-bold mb-2">Miedo al Vacío de Datos</h4>
+                        <p class="text-[11px] text-slate-400">Al aplicar el silencio, sientes que "no eres nadie". Es el sistema operativo intentando evitar que borres el kernel del ego.</p>
+                    </div>
+                    <!-- Error 4 -->
+                    <div onclick="showTrouble('physics')" class="troubleshoot-card terminal-box p-6 rounded-lg border-l-4 border-slate-700">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-xs font-mono text-slate-500">ERROR_ID: PHYS_01</span>
+                            <span class="bg-purple-900/30 text-purple-400 text-[9px] px-2 py-1 rounded">DEBUG</span>
+                        </div>
+                        <h4 class="text-white font-bold mb-2">Duda de Brian Cox (Escepticismo)</h4>
+                        <p class="text-[11px] text-slate-400">Sientes que la física cuántica no se aplica a tu billetera. Es una falla en la capa de traducción entre teoría y ejecución.</p>
+                    </div>
+                </div>
+
+                <!-- Solution Display Area -->
+                <div id="trouble-solution" class="hidden terminal-box p-8 rounded-lg border border-cyan-500/50 bg-cyan-900/5 animate-fade-in">
+                    <h3 id="solution-title" class="text-xl font-bold text-cyan-400 mb-2 font-mono uppercase"></h3>
+                    <div id="solution-body" class="text-sm text-slate-300 space-y-4"></div>
+                    <button onclick="hideTrouble()" class="mt-6 text-[10px] font-mono text-slate-500 hover:text-white uppercase">[ Cerrar Parche ]</button>
+                </div>
+            </section>
+
+            <!-- SECTION: SALTO -->
+            <section id="salto" class="hidden h-full flex items-center justify-center">
+                <div class="text-center space-y-8">
+                    <div class="relative inline-block">
+                        <div class="absolute inset-0 bg-cyan-500 blur-[100px] opacity-20"></div>
+                        <button onclick="triggerJump()" id="jump-master-btn" class="relative z-10 bg-slate-900 border-2 border-cyan-500 text-cyan-400 w-64 h-64 rounded-full flex flex-col items-center justify-center hover:bg-cyan-500 hover:text-black transition-all duration-700 group">
+                            <span class="text-4xl mb-2 group-hover:scale-125 transition">⚡</span>
+                            <span class="font-mono font-bold tracking-widest text-sm">INICIAR SALTO</span>
+                            <span class="text-[9px] mt-2 opacity-50">SIN RETORNO</span>
+                        </button>
+                    </div>
+                    <div id="jump-status" class="font-mono text-[10px] text-slate-500 uppercase tracking-widest">Sincronización de Fase: 0%</div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- MODALS -->
+    <div id="modal-container" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-2xl max-h-[80vh] overflow-y-auto rounded-xl p-8 shadow-2xl relative">
+            <button onclick="hideModal()" class="absolute top-4 right-4 text-slate-500 hover:text-white text-xl">✕</button>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <script>
+        // DATA
+        const terms = [
+            { t: "Anatman", d: "La ausencia de un 'yo' fijo. En software: el sistema no tiene un núcleo central, solo flujo de información." },
+            { t: "Efecto Zenón Cuántico", d: "Congelamiento de un estado por observación continua. Si otros te miran como pobre, te quedas pobre." },
+            { t: "Campo de Higgs", d: "Campo que otorga masa. El apego material es el que te da 'peso' existencial." },
+            { t: "Entropía Mental", d: "Nivel de desorden en tu red neuronal. A mayor miedo, mayor entropía y menos probabilidad de escape." },
+            { t: "Vela B", d: "Tu realidad alternativa de éxito ya calculada en el multiverso, esperando tu colapso de onda." }
+        ];
+
+        const solutions = {
+            social: {
+                title: "PARCHE: GHOSTING INFORMATIVO",
+                body: "El entorno social actúa como un campo de Higgs que te frena. **Protocolo:** Entra en modo 'Invisible'. No cuentes tus planes. Al dejar de ser observado, el sistema social pierde su capacidad de colapsar tu función de onda en el estado anterior. Tu anonimato es tu blindaje."
+            },
+            ego: {
+                title: "PARCHE: REBOOT DE KERNEL",
+                body: "La culpa es un proceso redundante que consume el 90% de tu energía. **Protocolo:** Reconoce que el 'yo' que cometió esos errores ya no existe físicamente (las células y los datos han cambiado). Borra el log de errores. Si el pasado no existe como dato actual, no puede afectar el cálculo presente."
+            },
+            vacuum: {
+                title: "PARCHE: ACEPTACIÓN DE LA VACUIDAD",
+                body: "El miedo al vacío es normal; el ego teme su propia desinstalación. **Protocolo:** Entiende que en el vacío de información es donde reside el potencial infinito. No ser 'nadie' es el requisito para ser 'quien quieras'. Deja que el sistema se limpie por completo antes de cargar la Vela B."
+            },
+            physics: {
+                title: "PARCHE: RE-CALIBRACIÓN BRIAN COX",
+                body: "La duda es ruido térmico. **Protocolo:** Recuerda el testimonio de Brian Cox: los átomos que te componen están entrelazados con todo el universo. Si la física permite que una partícula esté en dos lugares a la vez, permite que tu vida cambie de estado instantáneamente si logras la coherencia necesaria. No es fe, es matemática."
+            }
+        };
+
+        // UI LOGIC
+        let entChart, tunChart;
+        let coherence = 8;
+        let entropy = 92;
+
+        function switchTab(id) {
+            document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+            
+            document.querySelectorAll('aside nav button').forEach(b => {
+                b.classList.remove('tab-btn-active', 'text-cyan-400');
+                b.classList.add('text-slate-500');
+            });
+            document.getElementById('btn-' + id).classList.add('tab-btn-active', 'text-cyan-400');
+
+            if(id === 'diagnostico' && entChart) entChart.resize();
+            if(id === 'mecanica' && tunChart) tunChart.resize();
+        }
+
+        function updateDiagnostics() {
+            const z = parseInt(document.getElementById('range-zenon').value);
+            const h = parseInt(document.getElementById('range-higgs').value);
+            
+            document.getElementById('val-zenon').innerText = z + '%';
+            document.getElementById('val-higgs').innerText = h + '%';
+
+            entropy = ((z + h) / 2).toFixed(1);
+            coherence = (100 - entropy).toFixed(1);
+
+            document.getElementById('header-entropy').innerText = entropy + '%';
+            document.getElementById('header-coherence').innerText = coherence + '%';
+            
+            const circle = document.getElementById('coherence-circle');
+            circle.innerText = coherence + '%';
+            
+            if(coherence > 50) circle.className = "text-6xl font-bold text-green-400";
+            else if(coherence > 25) circle.className = "text-6xl font-bold text-yellow-500";
+            else circle.className = "text-6xl font-bold text-red-500";
+
+            updateChartData();
+        }
+
+        function showTrouble(key) {
+            const s = solutions[key];
+            document.getElementById('solution-title').innerText = s.title;
+            document.getElementById('solution-body').innerHTML = `<p>${s.body}</p>`;
+            document.getElementById('trouble-solution').classList.remove('hidden');
+            document.getElementById('trouble-solution').scrollIntoView({behavior: 'smooth'});
+        }
+
+        function hideTrouble() {
+            document.getElementById('trouble-solution').classList.add('hidden');
+        }
+
+        function showModal(type) {
+            const cont = document.getElementById('modal-container');
+            const content = document.getElementById('modal-content');
+            cont.classList.remove('hidden');
+
+            if(type === 'glosario') {
+                content.innerHTML = `<h2 class="text-2xl font-mono text-cyan-400 mb-6 uppercase border-b border-slate-800 pb-2">Diccionario de Ingeniería Existencial</h2>
+                                     <div class="space-y-6">${terms.map(t => `<div class="border-l-2 border-slate-700 pl-4">
+                                        <div class="text-white font-bold text-sm uppercase">${t.t}</div>
+                                        <div class="text-slate-400 text-xs">${t.d}</div>
+                                     </div>`).join('')}</div>`;
+            } else {
+                content.innerHTML = `<h2 class="text-2xl font-mono text-yellow-500 mb-4 uppercase">Testigo: Brian Cox</h2>
+                                     <p class="text-slate-300 text-sm leading-relaxed mb-4">Brian Cox nos recuerda que somos el universo observándose a sí mismo. Su visión de un universo interconectado y relacional es la base científica de por qué tu 'Algoritmo de Karma' no está limitado a tu cuerpo, sino que es una propiedad de la estructura del espacio-tiempo.</p>
+                                     <div class="bg-black p-4 rounded border border-slate-800 font-mono text-[10px] text-cyan-600">
+                                        "The universe is composed of information, and entropy is the measure of its disorder." - Simulación Cox_Ref_01
+                                     </div>`;
+            }
+        }
+
+        function hideModal() {
+            document.getElementById('modal-container').classList.add('hidden');
+        }
+
+        // CHARTS
+        function initCharts() {
+            const ctxEnt = document.getElementById('entropyChart').getContext('2d');
+            entChart = new Chart(ctxEnt, {
+                type: 'line',
+                data: {
+                    labels: ['-5h', '-4h', '-3h', '-2h', '-1h', 'Ahora'],
+                    datasets: [{
+                        label: 'Entropía',
+                        data: [90, 92, 88, 95, 93, 92],
+                        borderColor: '#f87171',
+                        borderWidth: 1,
+                        pointRadius: 0,
+                        fill: true,
+                        backgroundColor: 'rgba(248, 113, 113, 0.05)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { min: 0, max: 100, grid: { color: '#1e293b' }, ticks: { color: '#475569', font: { size: 9 } } },
+                        x: { grid: { display: false }, ticks: { color: '#475569', font: { size: 9 } } }
+                    }
+                }
+            });
+
+            const ctxTun = document.getElementById('tunnelChart').getContext('2d');
+            tunChart = new Chart(ctxTun, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 40}, (_, i) => i),
+                    datasets: [
+                        {
+                            label: 'Barrera',
+                            data: Array.from({length: 40}, (_, i) => (i > 20 && i < 25) ? 1 : 0),
+                            borderColor: '#f87171',
+                            backgroundColor: 'rgba(248, 113, 113, 0.4)',
+                            fill: true, pointRadius: 0, borderWidth: 0
+                        },
+                        {
+                            label: 'Onda',
+                            data: Array.from({length: 40}, (_, i) => Math.exp(-Math.pow(i - 10, 2) / 20)),
+                            borderColor: '#06b6d4',
+                            pointRadius: 0, borderWidth: 2, tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { display: false }, x: { display: false } }
+                }
+            });
+        }
+
+        function updateChartData() {
+            if(!entChart) return;
+            const d = entChart.data.datasets[0].data;
+            d.shift();
+            d.push(entropy);
+            entChart.update('none');
+        }
+
+        function runCooling() {
+            const wave = tunChart.data.datasets[1].data;
+            // Flatter and wider wave (Quantum cooling = higher position uncertainty)
+            const cooledData = Array.from({length: 40}, (_, i) => 0.6 * Math.exp(-Math.pow(i - 15, 2) / 150));
+            tunChart.data.datasets[1].data = cooledData;
+            tunChart.update();
+            alert("SISTEMA ENFRIADO. Probabilidad de tunelamiento incrementada al 74%.");
+        }
+
+        function triggerJump() {
+            let p = 0;
+            const status = document.getElementById('jump-status');
+            const btn = document.getElementById('jump-master-btn');
+            btn.disabled = true;
+            
+            const interval = setInterval(() => {
+                p += 2;
+                status.innerText = `Sincronización de Fase: ${p}%`;
+                if(p >= 100) {
+                    clearInterval(interval);
+                    document.body.innerHTML = `
+                        <div class="h-screen w-screen bg-white flex flex-col items-center justify-center fade-in">
+                            <h1 class="text-4xl font-mono font-bold text-black tracking-widest mb-4">VELA B CARGADA</h1>
+                            <p class="text-slate-500 font-mono text-sm">Hardware legacy descartado. Bienvenido, Administrador.</p>
+                            <button onclick="location.reload()" class="mt-8 text-[10px] font-mono text-slate-400 uppercase tracking-widest border-b border-slate-300 hover:text-black">Reiniciar Sesión</button>
+                        </div>
+                    `;
+                }
+            }, 50);
+        }
+
+        window.onload = () => {
+            initCharts();
+            updateDiagnostics();
+        };
+    </script>
+</body>
+</html>
